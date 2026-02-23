@@ -232,34 +232,62 @@ mod_stay:
 	sw		t1, 0(t0)
 
 check_pointer:
-	lio		t0, SELECTED 
-	lw		t1, 0(t0) 
-	lw		t2, 0(t1) 
-	bne		t2, zero, no_update_need 
+	lio		t0, SELECTED
+	lw		t1, 0(t0)
+	lw		t2, 0(t1)
+	beq		t2, zero, cp_search
 	nop
 
-	li		t4, 0x1	
-	addi	t1, t1, 4
-
-check_loop:
-	lw		t2, 0(t1) 
-	bne		t2, zero, update_to_new 
+	; Check if current monster is a large monster
+	lbu		t3, 0x1e8(t2)
+	li		t5, large_bitmap
+	srl		t6, t3, 3
+	addu	t5, t5, t6
+	lbu		t7, 0(t5)
+	andi	t6, t3, 7
+	li		t3, 1
+	sllv	t3, t3, t6
+	and		t3, t7, t3
+	bnez	t3, no_update_need
 	nop
 
+cp_search:
+	; Scan entire array for a large monster
+	lio		t1, MONSTER_POINTER
+	li		t4, 0
+
+cp_loop:
+	lw		t2, 0(t1)
+	beq		t2, zero, cp_skip
+	nop
+
+	lbu		t3, 0x1e8(t2)
+	li		t5, large_bitmap
+	srl		t6, t3, 3
+	addu	t5, t5, t6
+	lbu		t7, 0(t5)
+	andi	t6, t3, 7
+	li		t3, 1
+	sllv	t3, t3, t6
+	and		t3, t7, t3
+	bnez	t3, cp_found
+	nop
+
+cp_skip:
 	addi	t1, t1, 4
 	addi	t4, t4, 1
-	blt		t4, 4, check_loop
+	blt		t4, 4, cp_loop
 	nop
-	j need_to_reset
 
-update_to_new:
+	; No large monster found, reset to base
 	lio		t0, SELECTED
+	lio		t1, MONSTER_POINTER
 	sw		t1, 0(t0)
 	j		no_update_need
+	nop
 
-need_to_reset:
+cp_found:
 	lio		t0, SELECTED
-	lio		t1, 0x09C0D3C0
 	sw		t1, 0(t0)
 
 no_update_need:
@@ -316,10 +344,40 @@ set_right:
 	sh		t1, 0(t0)
 
 	lio		t1, SELECTED
-	lw		t0, 0(t1)	
-	addiu		t0, t0, 4	
-	sw		t0, 0(t1)	
+	lw		t0, 0(t1)
+	move	t4, t0
+	lio		t5, MONSTER_POINTER
 
+sr_next:
+	addiu	t0, t0, 4
+	addiu	t6, t5, 16
+	sltu	t7, t0, t6
+	bnez	t7, sr_check
+	nop
+	move	t0, t5
+
+sr_check:
+	beq		t0, t4, sr_done
+	nop
+	lw		t2, 0(t0)
+	beq		t2, zero, sr_next
+	nop
+
+	lbu		t3, 0x1e8(t2)
+	li		t6, large_bitmap
+	srl		t7, t3, 3
+	addu	t6, t6, t7
+	lbu		t7, 0(t6)
+	andi	t3, t3, 7
+	li		t6, 1
+	sllv	t6, t6, t3
+	and		t6, t7, t6
+	beq		t6, zero, sr_next
+	nop
+
+	sw		t0, 0(t1)
+
+sr_done:
 	j		ret
 	nop
 
@@ -329,20 +387,39 @@ set_left:
 	sh		t1, 0(t0)
 
 	lio		t1, SELECTED
-	lw		t0, 0(t1)	
-	addiu		t0, t0, -4
+	lw		t0, 0(t1)
+	move	t4, t0
+	lio		t5, MONSTER_POINTER
 
-	lio		t2, 0x09C0D3C0
-	sltu	t3, t0, t2
-	beq		t3, zero, not_less
+sl_next:
+	addiu	t0, t0, -4
+	sltu	t6, t0, t5
+	beq		t6, zero, sl_check
+	nop
+	addiu	t0, t5, 12
+
+sl_check:
+	beq		t0, t4, sl_done
+	nop
+	lw		t2, 0(t0)
+	beq		t2, zero, sl_next
 	nop
 
-	j		ret
+	lbu		t3, 0x1e8(t2)
+	li		t6, large_bitmap
+	srl		t7, t3, 3
+	addu	t6, t6, t7
+	lbu		t7, 0(t6)
+	andi	t3, t3, 7
+	li		t6, 1
+	sllv	t6, t6, t3
+	and		t6, t7, t6
+	beq		t6, zero, sl_next
 	nop
 
-not_less:
 	sw		t0, 0(t1)
 
+sl_done:
 	j		ret
 	nop
 
@@ -991,4 +1068,25 @@ monster_list:
     ;nargacuga
     .word 0x00000051
     .word 0x00FC00B4
+
+.align 4
+large_bitmap:
+    ; Bitmap of large monster type IDs (1 = large, allow in target camera)
+    ; Rathian(01) Kut-Ku(06) Lao-Shan(07) Cephadrome(08) Rathalos(0B)
+    ; Diablos(0E) Khezu(0F) Gravios(11) Gypceros(14) Plesioth(15) Basarios(16)
+    ; Monoblos(1A) Velocidrome(1B) Gendrome(1C) Iodrome(1F) Kirin(21)
+    ; Pink Rathian(25) Blue Kut-Ku(26) Purple Gypceros(27) One-Ear Garuga(28)
+    ; Silver Rathalos(29) Gold Rathian(2A) Black Diablos(2B) White Monoblos(2C)
+    ; Red Khezu(2D) Green Plesioth(2E) Black Gravios(2F) Daimyo Hermitaur(30)
+    ; Azure Rathalos(31) Ashen Lao-Shan(32) Blangonga(33) Congalala(34)
+    ; Rajang(35) Kushala(36) Shen Gaoren(37) Chameleos(3B) Rusted Kushala(3C)
+    ; Lunastra(40) Teostra(41) Shogun Ceanataur(43) Bulldrome(44)
+    ; Yamatsukami(48) Tigrex(4B) Giadrome(4D) Yian Garuga(4E)
+    ; Vespoid Queen(50) Nargacuga(51) Hypnocatrice(52) Lavasioth(53)
+    ; Copper Blangonga(54) Emerald Congalala(55) Plum D.Hermitaur(56)
+    ; Terra S.Ceanataur(57) Furious Rajang(59)
+    .word 0x9C72C9C2  ; IDs  0-31
+    .word 0x18FFFFE2  ; IDs 32-63
+    .word 0x02FF691B  ; IDs 64-95
+    .word 0x00000000  ; IDs 96-127
 .close
