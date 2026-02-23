@@ -42,33 +42,46 @@ def divide_and_write(f, filepath, base_addr, name, amount, offset_0, offset_1):
             f.write(line + "\n")
 
 amount = 20
+total = amount + 6  # +4 original sections + 2 vert hook sections
 
 with open("ULJM-05500.TXT", "w") as f:
     # Section 1: Vertex data
     with open("bin/VERTEX.bin", "rb") as bf:
         data = bf.read()
-    f.write(f"_C0 Target Cam [1/{amount+4}]\n")
+    f.write(f"_C0 Target Cam [1/{total}]\n")
     for line in bin_to_cwcheat(data, 0x0891E2C0):
         f.write(line + "\n")
 
     # Section 2: Camera code
     with open("bin/TARGET_CAM_JP.bin", "rb") as bf:
         data = bf.read()
-    f.write(f"_C0 Target Cam [2/{amount+4}]\n")
+    f.write(f"_C0 Target Cam [2/{total}]\n")
     for line in bin_to_cwcheat(data, 0x0891C920):
         f.write(line + "\n")
 
     # Section 3: Hook 1
-    f.write(f"_C0 Target Cam [3/{amount+4}]\n")
+    f.write(f"_C0 Target Cam [3/{total}]\n")
     f.write("_L 0x200871F8 0x0A247248\n")
 
     # Section 4: Hook 2
-    f.write(f"_C0 Target Cam [4/{amount+4}]\n")
+    f.write(f"_C0 Target Cam [4/{total}]\n")
     f.write("_L 0x20069408 0x0A2472A8\n")
 
     # Sections 5-24: Target change code (split into chunks)
     divide_and_write(f, "bin/TARGET_CHANGE_JP.bin", 0x0891CAA0,
                      "Target Cam", amount, 5, 4)
+
+    # Section 25: Vert hook code
+    with open("bin/VERT_HOOK.bin", "rb") as bf:
+        data = bf.read()
+    f.write(f"_C0 Target Cam [{amount+5}/{total}]\n")
+    for line in bin_to_cwcheat(data, 0x0891D660):
+        f.write(line + "\n")
+
+    # Section 26: Hook 3 (vert hook jump + nop)
+    f.write(f"_C0 Target Cam [{amount+6}/{total}]\n")
+    f.write("_L 0x20086CA4 0x0A247598\n")
+    f.write("_L 0x20086CA8 0x00000000\n")
 
     # Crosshair sections
     divide_and_write(f, "bin/crosshair.bin", 0x0891DDBC,

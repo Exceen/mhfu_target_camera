@@ -221,7 +221,8 @@ deactivate_mod:
 	j		mod_stay
 	nop
 
-mod_stay:	
+mod_stay:
+
 	lio		t0, SELECTED 
 	lw		t1, 0(t0)	
 	bne		t1, zero, check_pointer
@@ -1089,4 +1090,24 @@ large_bitmap:
     .word 0x18FFFFE2  ; IDs 32-63
     .word 0x02FF691B  ; IDs 64-95
     .word 0x00000000  ; IDs 96-127
+.close
+
+; Third hook: intercept vertical camera DpadUp/DpadDown handling
+; Hooks at 0x08886CA4 (replaces lw v1, 0x7508(v0) + lui v0, 0x0007)
+.createfile "./bin/VERT_HOOK.bin", 0x0891D660
+	lw		v1, 0x7508(v0)     ; original instruction from 0x08886CA4
+	lui		v0, 0x0007         ; original instruction from 0x08886CA8
+
+	; If L is held, clear DpadUp/DpadDown from edge-triggered button state
+	li		t0, BUTTONS_ADDR
+	lw		t1, 0(t0)
+	andi	t1, t1, BUTTON_L
+	beq		t1, zero, skip_suppress
+	lhu		t1, 0x86(s4)       ; delay slot: load edge-triggered buttons (harmless)
+	andi	t1, t1, 0xFFAF     ; clear DpadUp(0x10) and DpadDown(0x40)
+	sh		t1, 0x86(s4)
+
+skip_suppress:
+	j		0x08886CAC         ; return to next original instruction
+	nop
 .close

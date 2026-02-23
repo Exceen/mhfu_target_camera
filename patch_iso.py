@@ -82,6 +82,14 @@ def patch_iso(iso_path, eboot_offset):
     # Hook 2: at 0x00069408 + BASE_RAM
     patches.append((0x00069408 + BASE_RAM - EBOOT_BASE, b'\xA8\x72\x24\x0A'))
 
+    # VERT_HOOK.bin -> 0x0891D660
+    with open("bin/VERT_HOOK.bin", "rb") as f:
+        patches.append((0x0891D660 - EBOOT_BASE, f.read()))
+
+    # Hook 3: at 0x08886CA4 (replace 2 instructions with j + nop)
+    # j 0x0891D660 = 0x0A247598
+    patches.append((0x08886CA4 - EBOOT_BASE, b'\x98\x75\x24\x0A\x00\x00\x00\x00'))
+
     with open(iso_path, 'r+b') as f:
         for file_offset, data in patches:
             iso_offset = eboot_offset + file_offset
