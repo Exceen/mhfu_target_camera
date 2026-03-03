@@ -9,6 +9,7 @@ BUTTON_DPAD_DOWN equ 0x00000040
 SELECTED equ 0x0891C908
 TRIGGER equ 0x0891C90C
 MOD_TRIGGER equ 0x0891C910
+NO_TARGET_SLOT equ 0x0891C914
 BUTTONS_ADDR equ 0x08A5DD38
 MONSTER_POINTER equ 0x09C0D3C0
 PLAYER_COORDINATES equ 0x090AF0B0
@@ -191,6 +192,10 @@ skip_copy:
 	sw		t2, 0(t1)
 skip_subtract:
 
+	; Ensure NO_TARGET_SLOT is always zero
+	li		t0, NO_TARGET_SLOT
+	sw		zero, 0(t0)
+
 	li		t0, BUTTONS_ADDR
 	lw		t1, 0(t0)
 
@@ -235,6 +240,10 @@ mod_stay:
 check_pointer:
 	lio		t0, SELECTED
 	lw		t1, 0(t0)
+	; If user chose NO_TARGET, don't auto-reassign
+	li		t3, NO_TARGET_SLOT
+	beq		t1, t3, no_update_need
+	nop
 	lw		t2, 0(t1)
 	beq		t2, zero, cp_search
 	nop
@@ -249,18 +258,24 @@ check_pointer:
 	li		t3, 1
 	sllv	t3, t3, t6
 	and		t3, t7, t3
-	bnez	t3, no_update_need
+	beqz	t3, cp_search
+	lhu		t5, 0x2E4(t2)		; delay slot: load HP
+	bnez	t5, no_update_need	; HP > 0 -> alive, keep target
 	nop
+	; HP = 0 -> dead, fall through to cp_search
 
 cp_search:
 	; Scan entire array for a large monster
 	lio		t1, MONSTER_POINTER
 	li		t4, 0
+	li		t0, 0				; t0 = saw any entity flag
 
 cp_loop:
 	lw		t2, 0(t1)
 	beq		t2, zero, cp_skip
 	nop
+
+	li		t0, 1				; saw at least one entity
 
 	lbu		t3, 0x1e8(t2)
 	li		t5, large_bitmap
@@ -271,8 +286,11 @@ cp_loop:
 	li		t3, 1
 	sllv	t3, t3, t6
 	and		t3, t7, t3
-	bnez	t3, cp_found
+	beqz	t3, cp_skip
+	lhu		t5, 0x2E4(t2)		; delay slot: load HP
+	bnez	t5, cp_found		; HP > 0 -> alive, found!
 	nop
+	; HP = 0 -> dead, fall through to cp_skip
 
 cp_skip:
 	addi	t1, t1, 4
@@ -280,9 +298,21 @@ cp_skip:
 	blt		t4, 4, cp_loop
 	nop
 
-	; No large monster found, reset to base
+	; No alive large monster found
+	bnez	t0, cp_all_dead
+	nop
+
+	; No entities at all (quest loading) -> reset to base, retry next frame
 	lio		t0, SELECTED
 	lio		t1, MONSTER_POINTER
+	sw		t1, 0(t0)
+	j		no_update_need
+	nop
+
+cp_all_dead:
+	; Entities exist but all dead -> no target
+	lio		t0, SELECTED
+	li		t1, NO_TARGET_SLOT
 	sw		t1, 0(t0)
 	j		no_update_need
 	nop
@@ -346,8 +376,19 @@ set_right:
 
 	lio		t1, SELECTED
 	lw		t0, 0(t1)
-	move	t4, t0
 	lio		t5, MONSTER_POINTER
+
+	; If at NO_TARGET, scan from base-4 so first increment hits slot 0
+	li		t3, NO_TARGET_SLOT
+	bne		t0, t3, sr_normal
+	nop
+	addiu	t0, t5, -4
+	move	t4, t3			; t4 = NO_TARGET (never matches a valid slot)
+	j		sr_next
+	nop
+
+sr_normal:
+	move	t4, t0
 
 sr_next:
 	addiu	t0, t0, 4
@@ -355,7 +396,11 @@ sr_next:
 	sltu	t7, t0, t6
 	bnez	t7, sr_check
 	nop
-	move	t0, t5
+	; Past end of array -> select NO_TARGET
+	li		t0, NO_TARGET_SLOT
+	sw		t0, 0(t1)
+	j		sr_done
+	nop
 
 sr_check:
 	beq		t0, t4, sr_done
@@ -374,6 +419,8 @@ sr_check:
 	sllv	t6, t6, t3
 	and		t6, t7, t6
 	beq		t6, zero, sr_next
+	lhu		t3, 0x2E4(t2)		; delay slot: load HP
+	beqz	t3, sr_next			; HP = 0 -> dead, skip
 	nop
 
 	sw		t0, 0(t1)
@@ -389,15 +436,30 @@ set_left:
 
 	lio		t1, SELECTED
 	lw		t0, 0(t1)
-	move	t4, t0
 	lio		t5, MONSTER_POINTER
+
+	; If at NO_TARGET, scan from base+16 so first decrement hits slot 3
+	li		t3, NO_TARGET_SLOT
+	bne		t0, t3, sl_normal
+	nop
+	addiu	t0, t5, 16
+	move	t4, t3			; t4 = NO_TARGET (never matches a valid slot)
+	j		sl_next
+	nop
+
+sl_normal:
+	move	t4, t0
 
 sl_next:
 	addiu	t0, t0, -4
 	sltu	t6, t0, t5
 	beq		t6, zero, sl_check
 	nop
-	addiu	t0, t5, 12
+	; Before start of array -> select NO_TARGET
+	li		t0, NO_TARGET_SLOT
+	sw		t0, 0(t1)
+	j		sl_done
+	nop
 
 sl_check:
 	beq		t0, t4, sl_done
@@ -416,6 +478,8 @@ sl_check:
 	sllv	t6, t6, t3
 	and		t6, t7, t6
 	beq		t6, zero, sl_next
+	lhu		t3, 0x2E4(t2)		; delay slot: load HP
+	beqz	t3, sl_next			; HP = 0 -> dead, skip
 	nop
 
 	sw		t0, 0(t1)
@@ -1094,7 +1158,7 @@ large_bitmap:
 
 ; Third hook: intercept vertical camera DpadUp/DpadDown handling
 ; Hooks at 0x08886CA4 (replaces lw v1, 0x7508(v0) + lui v0, 0x0007)
-.createfile "./bin/VERT_HOOK.bin", 0x0891D660
+.createfile "./bin/VERT_HOOK.bin", 0x0891D700
 	lw		v1, 0x7508(v0)     ; original instruction from 0x08886CA4
 	lui		v0, 0x0007         ; original instruction from 0x08886CA8
 
