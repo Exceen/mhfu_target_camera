@@ -1,6 +1,7 @@
 .psp
 
 BUTTON_L equ 0x00000100
+BUTTON_R equ 0x00000200
 BUTTON_DPAD_RIGHT equ 0x00000020
 BUTTON_DPAD_LEFT equ 0x00000080
 BUTTON_DPAD_UP equ 0x00000010
@@ -10,6 +11,7 @@ SELECTED equ 0x0891C908
 TRIGGER equ 0x0891C90C
 MOD_TRIGGER equ 0x0891C910
 NO_TARGET_SLOT equ 0x0891C914
+USER_NO_TARGET equ 0x0891C918
 BUTTONS_ADDR equ 0x08A5DD38
 MONSTER_POINTER equ 0x09C0D3C0
 PLAYER_COORDINATES equ 0x090AF0B0
@@ -221,8 +223,7 @@ activate_mod:
 
 deactivate_mod:
 	li		t0, MOD_TRIGGER
-	li		t1, 0x00000000
-	sw		t1, 0(t0)
+	sw		zero, 0(t0)
 	j		mod_stay
 	nop
 
@@ -240,10 +241,17 @@ mod_stay:
 check_pointer:
 	lio		t0, SELECTED
 	lw		t1, 0(t0)
-	; If user chose NO_TARGET, don't auto-reassign
 	li		t3, NO_TARGET_SLOT
-	beq		t1, t3, no_update_need
+	bne		t1, t3, cp_not_no_target
 	nop
+	; SELECTED == NO_TARGET_SLOT: check if user chose it
+	li		t3, USER_NO_TARGET
+	lbu		t3, 0(t3)
+	bnez	t3, no_update_need		; user chose no target, respect it
+	nop
+	j		cp_search				; system set it, retry
+	nop
+cp_not_no_target:
 	lw		t2, 0(t1)
 	beq		t2, zero, cp_search
 	nop
@@ -310,10 +318,12 @@ cp_skip:
 	nop
 
 cp_all_dead:
-	; Entities exist but all dead -> no target
+	; Entities exist but all dead -> no target (system, not user)
 	lio		t0, SELECTED
 	li		t1, NO_TARGET_SLOT
 	sw		t1, 0(t0)
+	li		t0, USER_NO_TARGET
+	sb		zero, 0(t0)			; clear user flag
 	j		no_update_need
 	nop
 
@@ -326,25 +336,26 @@ no_update_need:
 	li		t0, BUTTONS_ADDR
 	lw		t1, 0(t0)
 
-	li		t2, BUTTON_L | BUTTON_DPAD_RIGHT
+	li		t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_RIGHT
 	and		t3, t1, t2
+	li		t2, BUTTON_L | BUTTON_DPAD_RIGHT
 	beq		t3, t2, buttons_checked
 	nop
 
-	li		t2, BUTTON_L | BUTTON_DPAD_LEFT
+	li		t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_LEFT
 	and		t3, t1, t2
+	li		t2, BUTTON_L | BUTTON_DPAD_LEFT
 	beq		t3, t2, buttons_checked
 	nop
 
 	lio		t0, TRIGGER
-	lio		t1, 0x00000000
-	sh		t1, 0(t0)
+	sh		zero, 0(t0)
 
 buttons_checked:
 
 	lio		t0, TRIGGER
 	lw		t1, 0(t0)
-	lio		t2, 0xFAFA
+	li		t2, 0xFAFA
 	and		t3, t1, t2
 	beq		t3, t2, ret
 	nop
@@ -352,26 +363,27 @@ buttons_checked:
 	li		t0, BUTTONS_ADDR
 	lw		t1, 0(t0)
 
-	li		t2, BUTTON_L | BUTTON_DPAD_RIGHT
+	li		t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_RIGHT
 	and		t3, t1, t2
+	li		t2, BUTTON_L | BUTTON_DPAD_RIGHT
 	beq		t3, t2, set_right
 	nop
 
-	li		t2, BUTTON_L | BUTTON_DPAD_LEFT
+	li		t2, BUTTON_L | BUTTON_R | BUTTON_DPAD_LEFT
 	and		t3, t1, t2
+	li		t2, BUTTON_L | BUTTON_DPAD_LEFT
 	beq		t3, t2, set_left
 	nop
 
 	lio		t0, TRIGGER
-	lio		t1, 0x00000000
-	sh		t1, 0(t0)
+	sh		zero, 0(t0)
 
 	j		ret
 	nop
 
 set_right:
 	lio		t0, TRIGGER
-	lio		t1, 0xFAFA
+	li		t1, 0xFAFA
 	sh		t1, 0(t0)
 
 	lio		t1, SELECTED
@@ -396,9 +408,12 @@ sr_next:
 	sltu	t7, t0, t6
 	bnez	t7, sr_check
 	nop
-	; Past end of array -> select NO_TARGET
+	; Past end of array -> select NO_TARGET (user chose this)
 	li		t0, NO_TARGET_SLOT
 	sw		t0, 0(t1)
+	li		t0, USER_NO_TARGET
+	li		t3, 1
+	sb		t3, 0(t0)
 	j		sr_done
 	nop
 
@@ -431,7 +446,7 @@ sr_done:
 
 set_left:
 	lio		t0, TRIGGER
-	lio		t1, 0xFAFA
+	li		t1, 0xFAFA
 	sh		t1, 0(t0)
 
 	lio		t1, SELECTED
@@ -455,9 +470,12 @@ sl_next:
 	sltu	t6, t0, t5
 	beq		t6, zero, sl_check
 	nop
-	; Before start of array -> select NO_TARGET
+	; Before start of array -> select NO_TARGET (user chose this)
 	li		t0, NO_TARGET_SLOT
 	sw		t0, 0(t1)
+	li		t0, USER_NO_TARGET
+	li		t3, 1
+	sb		t3, 0(t0)
 	j		sl_done
 	nop
 
@@ -1158,7 +1176,7 @@ large_bitmap:
 
 ; Third hook: intercept vertical camera DpadUp/DpadDown handling
 ; Hooks at 0x08886CA4 (replaces lw v1, 0x7508(v0) + lui v0, 0x0007)
-.createfile "./bin/VERT_HOOK.bin", 0x0891D700
+.createfile "./bin/VERT_HOOK.bin", 0x0891D740
 	lw		v1, 0x7508(v0)     ; original instruction from 0x08886CA4
 	lui		v0, 0x0007         ; original instruction from 0x08886CA8
 
