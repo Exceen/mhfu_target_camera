@@ -2,6 +2,7 @@ bin/
 modio/
 armips/
 *.txt
+!version.txt
 *.bin
 *.iso
 cwcheatio.py
