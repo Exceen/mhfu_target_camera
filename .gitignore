@@ -3,6 +3,7 @@ modio/
 armips/
 *.txt
 !version.txt
+!cheats.txt
 *.bin
 *.iso
 cwcheatio.py
