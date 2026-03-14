@@ -386,6 +386,17 @@ set_right:
 	li		t1, 0xFAFA
 	sh		t1, 0(t0)
 
+	; If camera was off, just enable and return without cycling
+	li		t0, MOD_TRIGGER
+	lw		t1, 0(t0)
+	lio		t2, 0xFFFFFFFF
+	beq		t1, t2, sr_already_on
+	nop
+	sw		t2, 0(t0)
+	j		ret
+	nop
+
+sr_already_on:
 	lio		t1, SELECTED
 	lw		t0, 0(t1)
 	lio		t5, MONSTER_POINTER
@@ -395,31 +406,23 @@ set_right:
 	bne		t0, t3, sr_normal
 	nop
 	addiu	t0, t5, -4
-	move	t4, t3			; t4 = NO_TARGET (never matches a valid slot)
-	j		sr_next
-	nop
 
 sr_normal:
-	move	t4, t0
+	li		t4, 4				; counter: check up to 4 slots
 
 sr_next:
+	beqz	t4, sr_done			; checked all slots, none found
+	addiu	t4, t4, -1			; delay slot: decrement counter
+
 	addiu	t0, t0, 4
+	; wrap: if past end, go back to beginning
 	addiu	t6, t5, 16
 	sltu	t7, t0, t6
 	bnez	t7, sr_check
 	nop
-	; Past end of array -> select NO_TARGET (user chose this)
-	li		t0, NO_TARGET_SLOT
-	sw		t0, 0(t1)
-	li		t0, USER_NO_TARGET
-	li		t3, 1
-	sb		t3, 0(t0)
-	j		sr_done
-	nop
+	move	t0, t5				; wrap to slot 0
 
 sr_check:
-	beq		t0, t4, sr_done
-	nop
 	lw		t2, 0(t0)
 	beq		t2, zero, sr_next
 	nop
@@ -449,6 +452,17 @@ set_left:
 	li		t1, 0xFAFA
 	sh		t1, 0(t0)
 
+	; If camera was off, just enable and return without cycling
+	li		t0, MOD_TRIGGER
+	lw		t1, 0(t0)
+	lio		t2, 0xFFFFFFFF
+	beq		t1, t2, sl_already_on
+	nop
+	sw		t2, 0(t0)
+	j		ret
+	nop
+
+sl_already_on:
 	lio		t1, SELECTED
 	lw		t0, 0(t1)
 	lio		t5, MONSTER_POINTER
@@ -458,30 +472,22 @@ set_left:
 	bne		t0, t3, sl_normal
 	nop
 	addiu	t0, t5, 16
-	move	t4, t3			; t4 = NO_TARGET (never matches a valid slot)
-	j		sl_next
-	nop
 
 sl_normal:
-	move	t4, t0
+	li		t4, 4				; counter: check up to 4 slots
 
 sl_next:
+	beqz	t4, sl_done			; checked all slots, none found
+	addiu	t4, t4, -1			; delay slot: decrement counter
+
 	addiu	t0, t0, -4
+	; wrap: if before start, go to last slot
 	sltu	t6, t0, t5
 	beq		t6, zero, sl_check
 	nop
-	; Before start of array -> select NO_TARGET (user chose this)
-	li		t0, NO_TARGET_SLOT
-	sw		t0, 0(t1)
-	li		t0, USER_NO_TARGET
-	li		t3, 1
-	sb		t3, 0(t0)
-	j		sl_done
-	nop
+	addiu	t0, t5, 12			; wrap to slot 3
 
 sl_check:
-	beq		t0, t4, sl_done
-	nop
 	lw		t2, 0(t0)
 	beq		t2, zero, sl_next
 	nop
