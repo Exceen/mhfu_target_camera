@@ -12,6 +12,7 @@ TRIGGER equ 0x0891C90C
 MOD_TRIGGER equ 0x0891C910
 NO_TARGET_SLOT equ 0x0891C914
 USER_NO_TARGET equ 0x0891C918
+HAD_MONSTERS equ 0x0891C91C
 BUTTONS_ADDR equ 0x08A5DD38
 MONSTER_POINTER equ 0x09C0D3C0
 PLAYER_COORDINATES equ 0x090AF0B0
@@ -198,6 +199,37 @@ skip_subtract:
 	li		t0, NO_TARGET_SLOT
 	sw		zero, 0(t0)
 
+	; Quest transition detection: auto-enable on new quest
+	lio		t1, MONSTER_POINTER
+	lw		t2, 0(t1)
+	lw		t3, 4(t1)
+	or		t2, t2, t3
+	lw		t3, 8(t1)
+	or		t2, t2, t3
+	lw		t3, 12(t1)
+	or		t2, t2, t3
+	; t2 = 0 if all pointers NULL, non-zero if any entity exists
+	li		t0, HAD_MONSTERS
+	lbu		t3, 0(t0)
+	bnez	t2, quest_has_entities
+	nop
+	; No entities (village/hub) -> clear flag
+	sb		zero, 0(t0)
+	j		quest_detect_done
+	nop
+
+quest_has_entities:
+	; Entities exist - if flag was already set, skip
+	bnez	t3, quest_detect_done
+	nop
+	; First frame with entities -> new quest, enable target camera
+	li		t3, 1
+	sb		t3, 0(t0)
+	li		t0, MOD_TRIGGER
+	li		t3, 0xFFFFFFFF
+	sw		t3, 0(t0)
+
+quest_detect_done:
 	li		t0, BUTTONS_ADDR
 	lw		t1, 0(t0)
 
