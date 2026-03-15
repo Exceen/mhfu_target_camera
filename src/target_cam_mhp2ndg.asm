@@ -200,6 +200,17 @@ skip_subtract:
 	sw		zero, 0(t0)
 
 	; Quest transition detection: auto-enable on new quest
+	; Reset HAD_MONSTERS during loading so auto-enable triggers on every quest
+	li		t0, 0x090AF424
+	lb		t1, 0(t0)
+	beqz	t1, not_loading
+	nop
+	li		t0, HAD_MONSTERS
+	sb		zero, 0(t0)
+	j		quest_detect_done
+	nop
+
+not_loading:
 	lio		t1, MONSTER_POINTER
 	lw		t2, 0(t1)
 	lw		t3, 4(t1)
@@ -1214,17 +1225,27 @@ large_bitmap:
 
 ; Third hook: intercept vertical camera DpadUp/DpadDown handling
 ; Hooks at 0x08886CA4 (replaces lw v1, 0x7508(v0) + lui v0, 0x0007)
-.createfile "./bin/VERT_HOOK.bin", 0x0891D740
+.createfile "./bin/VERT_HOOK.bin", 0x0891D7C0
 	lw		v1, 0x7508(v0)     ; original instruction from 0x08886CA4
 	lui		v0, 0x0007         ; original instruction from 0x08886CA8
 
 	; If L is held, clear DpadUp/DpadDown from edge-triggered button state
+	; Also clear DpadLeft/DpadRight unless R is also held (speed cheat)
 	li		t0, BUTTONS_ADDR
-	lw		t1, 0(t0)
-	andi	t1, t1, BUTTON_L
+	lw		t0, 0(t0)
+	andi	t1, t0, BUTTON_L
 	beq		t1, zero, skip_suppress
 	lhu		t1, 0x86(s4)       ; delay slot: load edge-triggered buttons (harmless)
 	andi	t1, t1, 0xFFAF     ; clear DpadUp(0x10) and DpadDown(0x40)
+	andi	t2, t0, BUTTON_R
+	bnez	t2, store_suppress ; R held -> keep DpadLeft/Right for speed cheat
+	nop
+	andi	t1, t1, 0xFF5F     ; clear DpadLeft(0x80) and DpadRight(0x20)
+	; Also clear from held state at 0x84(s4) for horizontal camera handler
+	lhu		t2, 0x84(s4)
+	andi	t2, t2, 0xFF5F
+	sh		t2, 0x84(s4)
+store_suppress:
 	sh		t1, 0x86(s4)
 
 skip_suppress:

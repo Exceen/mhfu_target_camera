@@ -75,12 +75,12 @@ with open("ULJM-05500.TXT", "w") as f:
     with open("bin/VERT_HOOK.bin", "rb") as bf:
         data = bf.read()
     f.write(f"_C0 Target Cam [{amount+5}/{total}]\n")
-    for line in bin_to_cwcheat(data, 0x0891D740):
+    for line in bin_to_cwcheat(data, 0x0891D7C0):
         f.write(line + "\n")
 
     # Section 26: Hook 3 (vert hook jump + nop)
     f.write(f"_C0 Target Cam [{amount+6}/{total}]\n")
-    f.write("_L 0x20086CA4 0x0A2475D0\n")
+    f.write("_L 0x20086CA4 0x0A2475F0\n")
     f.write("_L 0x20086CA8 0x00000000\n")
 
     # Crosshair sections

@@ -82,13 +82,13 @@ def patch_iso(iso_path, eboot_offset):
     # Hook 2: at 0x00069408 + BASE_RAM
     patches.append((0x00069408 + BASE_RAM - EBOOT_BASE, b'\xA8\x72\x24\x0A'))
 
-    # VERT_HOOK.bin -> 0x0891D740
+    # VERT_HOOK.bin -> 0x0891D7C0
     with open("bin/VERT_HOOK.bin", "rb") as f:
-        patches.append((0x0891D740 - EBOOT_BASE, f.read()))
+        patches.append((0x0891D7C0 - EBOOT_BASE, f.read()))
 
     # Hook 3: at 0x08886CA4 (replace 2 instructions with j + nop)
-    # j 0x0891D740 = 0x0A2475D0
-    patches.append((0x08886CA4 - EBOOT_BASE, b'\xD0\x75\x24\x0A\x00\x00\x00\x00'))
+    # j 0x0891D7C0 = 0x0A2475F0
+    patches.append((0x08886CA4 - EBOOT_BASE, b'\xF0\x75\x24\x0A\x00\x00\x00\x00'))
 
     with open(iso_path, 'r+b') as f:
         for file_offset, data in patches:
@@ -115,8 +115,8 @@ def patch_title(iso_path, new_title, max_len=128):
 
 
 def main():
-    src_iso = os.path.expanduser("~/Downloads/Monster Hunter Portable 2nd G FUC gamma.iso")
-    dst_iso = os.path.expanduser("~/Downloads/Monster Hunter Portable 2nd G FUC gamma patched.iso")
+    src_iso = os.path.expanduser("~/Documents/PPSSPP/ISOs/Monster Hunter Portable 2nd G FUC zeta.iso")
+    dst_iso = os.path.expanduser("~/Downloads/FUComplete zeta patched.iso")
 
     print(f"Copying ISO...")
     shutil.copy2(src_iso, dst_iso)
