@@ -644,11 +644,15 @@ cheat_icon_y2:
 	lhu		t1, 0(t0)
 	beqz	t1, skip_x_patch	; 0 = uninitialized, keep defaults
 	nop
-	li		t0, VERTEX_1
-	sh		t1, 2(t0)			; upper halfword = left X
-	addiu	t1, t1, 36			; + icon width
 	li		t0, VERTEX_4
-	sh		t1, 2(t0)			; upper halfword = right X
+	lhu		t2, 2(t0)			; current right X
+	li		t0, VERTEX_1
+	lhu		t3, 2(t0)			; current left X
+	subu	t2, t2, t3			; width = right - left
+	sh		t1, 2(t0)			; left X = icon_x_pos
+	addu	t1, t1, t2			; right X = icon_x_pos + width
+	li		t0, VERTEX_4
+	sh		t1, 2(t0)
 skip_x_patch:
 
 	li		t0, SELECTED
