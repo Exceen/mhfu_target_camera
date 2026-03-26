@@ -9,6 +9,7 @@ BUTTON_DPAD_DOWN equ 0x00000040
 SELECTED equ 0x0891F5E8 ; DONE
 TRIGGER equ 0x0891F5EC ; DONE
 MOD_TRIGGER equ 0x0891F5F0 ; DONE
+ICON_X_POS equ 0x0891F5F4 ; dynamic icon X, only written by CWCheat
 BUTTONS_ADDR equ 0x08A62D88 ; DONE
 MONSTER_POINTER equ 0x09C12240 ;DONE
 PLAYER_COORDINATES equ 0x090B34B0 ; DONE
@@ -426,9 +427,21 @@ skip_dual_test_check:
 	li		t1, VERTEX_4	
 	sw		t0, 0(t1)	
 
-	li		t0, 0x00000108	
-	li		t1, VERTEX_5	
-	sw		t0, 0(t1)	
+	li		t0, 0x00000108
+	li		t1, VERTEX_5
+	sw		t0, 0(t1)
+
+	; Patch icon X from dynamic icon_x_pos
+	lio		t0, ICON_X_POS
+	lhu		t1, 0(t0)
+	beqz	t1, skip_x_patch	; 0 = uninitialized, keep defaults
+	nop
+	li		t0, VERTEX_1
+	sh		t1, 2(t0)			; upper halfword = left X
+	addiu	t1, t1, 36			; + icon width
+	li		t0, VERTEX_4
+	sh		t1, 2(t0)			; upper halfword = right X
+skip_x_patch:
 
 	li		t0, SELECTED
 	lw		t1, 0(t0)

@@ -45,6 +45,10 @@ divide_file("bin/TARGET_CHANGE_US.bin", "Target Cam", amount, 5, 4)
 
 file.seek(0x08920A9C)
 divide_file("bin/crosshair.bin", "Crosshair", 8, 1, 0)
+
+# Icon X position (default 8, CWCheat-writable)
+file.write("Icon X position (default 8)")
+file.write("_L 0x1011F5F4 0x00000008\n")
 file.close()
 
 file = CwCheatIO("ULJM-05500.TXT")
@@ -73,8 +77,9 @@ divide_file("bin/TARGET_CHANGE_JP.bin", "Target Cam", amount, 5, 4)
 
 file.seek(0x0891DDBC)
 divide_file("bin/crosshair.bin", "Crosshair", 8, 1, 0)
-# file.write(f"Target Cam [{amount+5}/{amount+5}]")
-# with open("bin/crosshair.bin", "rb") as bin:
-#     file.write(bin.read())
+
+# Icon X position (default 8, CWCheat-writable)
+file.write("Icon X position (default 8)")
+file.write("_L 0x1011C8EC 0x00000008\n")
 
 file.close()

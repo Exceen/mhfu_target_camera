@@ -10,6 +10,7 @@ BUTTON_DPAD_DOWN equ 0x00000040
 SELECTED equ 0x0891C908
 TRIGGER equ 0x0891C90C
 MOD_TRIGGER equ 0x0891C910
+ICON_X_POS equ 0x0891C8EC ; dynamic icon X, only written by CWCheat
 NO_TARGET_SLOT equ 0x0891C914
 USER_NO_TARGET equ 0x0891C918
 HAD_MONSTERS equ 0x0891C91C
@@ -610,29 +611,45 @@ skip_dual_test_check:
 
 	; setup vertices
 	; monster icon
-	li		t0, 0x00B40024	
-	li		t1, VERTEX_0	
-	sw		t0, 0(t1)	
+	li		t0, 0x00B40024
+	li		t1, VERTEX_0
+	sw		t0, 0(t1)
 
-	li		t0, 0x00089Ce6	
-	li		t1, VERTEX_1	
-	sw		t0, 0(t1)	
+cheat_icon_vtx1_hi:
+	li		t0, 0x00089Ce6
+	li		t1, VERTEX_1
+	sw		t0, 0(t1)
 
-	li		t0, 0x000000E4	
-	li		t1, VERTEX_2	
-	sw		t0, 0(t1)	
+cheat_icon_y1:
+	li		t0, 0x000000E4
+	li		t1, VERTEX_2
+	sw		t0, 0(t1)
 
-	li		t0, 0x00D80048	
-	li		t1, VERTEX_3	
-	sw		t0, 0(t1)	
+	li		t0, 0x00D80048
+	li		t1, VERTEX_3
+	sw		t0, 0(t1)
 
-	li		t0, 0x002C9Ce6	
-	li		t1, VERTEX_4	
-	sw		t0, 0(t1)	
+cheat_icon_vtx4_hi:
+	li		t0, 0x002C9Ce6
+	li		t1, VERTEX_4
+	sw		t0, 0(t1)
 
-	li		t0, 0x00000108	
-	li		t1, VERTEX_5	
-	sw		t0, 0(t1)	
+cheat_icon_y2:
+	li		t0, 0x00000108
+	li		t1, VERTEX_5
+	sw		t0, 0(t1)
+
+	; Patch icon X from dynamic icon_x_pos
+	lio		t0, ICON_X_POS
+	lhu		t1, 0(t0)
+	beqz	t1, skip_x_patch	; 0 = uninitialized, keep defaults
+	nop
+	li		t0, VERTEX_1
+	sh		t1, 2(t0)			; upper halfword = left X
+	addiu	t1, t1, 36			; + icon width
+	li		t0, VERTEX_4
+	sh		t1, 2(t0)			; upper halfword = right X
+skip_x_patch:
 
 	li		t0, SELECTED
 	lw		t1, 0(t0)
@@ -801,64 +818,76 @@ not_on_screen:
 on_screen:
 	;adjust x
 	mfv		t0, s602
+cheat_cross_x0:
 	addi	t0, t0, -16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x8(t1)
 
 	mfv		t0, s602
+cheat_cross_x1:
 	addi	t0, t0, 16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x18(t1)
 
 	mfv		t0, s602
+cheat_cross_x2:
 	addi	t0, t0, 16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x28(t1)
 
 	mfv		t0, s602
+cheat_cross_x3:
 	addi	t0, t0, -16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x38(t1)
 
 	mfv		t0, s602
+cheat_cross_x4:
 	addi	t0, t0, 16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x48(t1)
 
 	mfv		t0, s602
+cheat_cross_x5:
 	addi	t0, t0, -16
-	li		t1, VCROSS_0	
-	sh		t0, 0x58(t1)		
+	li		t1, VCROSS_0
+	sh		t0, 0x58(t1)
 
 	;adjust y
 	mfv		t0, s612
+cheat_cross_y0:
 	addi	t0, t0, -16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0xa(t1)
 
 	mfv		t0, s612
+cheat_cross_y1:
 	addi	t0, t0, 16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x1a(t1)
 
 	mfv		t0, s612
-	addi	t0, t0, -16	
-	li		t1, VCROSS_0	
+cheat_cross_y2:
+	addi	t0, t0, -16
+	li		t1, VCROSS_0
 	sh		t0, 0x2a(t1)
 
 	mfv		t0, s612
+cheat_cross_y3:
 	addi	t0, t0, -16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x3a(t1)
 
 	mfv		t0, s612
-	addi		t0, t0, 16	
-	li		t1, VCROSS_0	
+cheat_cross_y4:
+	addi		t0, t0, 16
+	li		t1, VCROSS_0
 	sh		t0, 0x4a(t1)
 
 	mfv		t0, s612
+cheat_cross_y5:
 	addi	t0, t0, 16
-	li		t1, VCROSS_0	
+	li		t1, VCROSS_0
 	sh		t0, 0x5a(t1)
 
 skip_crosshair:
@@ -902,9 +931,10 @@ drawing:
 	beq		t2, t0, skip_draw
 	nop
 
+cheat_crosshair_draw:
 	li		a0, gpu_code2
 	li		a2, 0
-	
+
 	li		a3, 0
 	jal		sceGeListEnQueue; 
 	li		a1, 0x0
@@ -1251,4 +1281,31 @@ store_suppress:
 skip_suppress:
 	j		0x08886CAC         ; return to next original instruction
 	nop
+.close
+
+; Export patchable addresses for cheats generation
+.createfile "./bin/cheats_addrs.bin", 0x0
+	; Icon size (4 addresses: lui/ori pairs for vertex setup)
+	.word cheat_icon_vtx1_hi		; lui half of li t0, 0x00B40024
+	.word cheat_icon_y1			; li t0, 0x000000E4 (single instruction)
+	.word cheat_icon_vtx4_hi	; lui half of li t0, 0x002C9Ce6
+	.word cheat_icon_y2			; li t0, 0x00000108 (single instruction)
+	; Crosshair draw (1 address)
+	.word cheat_crosshair_draw	; li a0, gpu_code2
+	; Crosshair size X (6 addresses)
+	.word cheat_cross_x0
+	.word cheat_cross_x1
+	.word cheat_cross_x2
+	.word cheat_cross_x3
+	.word cheat_cross_x4
+	.word cheat_cross_x5
+	; Crosshair size Y (6 addresses)
+	.word cheat_cross_y0
+	.word cheat_cross_y1
+	.word cheat_cross_y2
+	.word cheat_cross_y3
+	.word cheat_cross_y4
+	.word cheat_cross_y5
+	; Icon X position variable
+	.word ICON_X_POS
 .close
