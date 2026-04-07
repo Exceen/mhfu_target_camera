@@ -1259,7 +1259,7 @@ large_bitmap:
 
 ; Third hook: intercept vertical camera DpadUp/DpadDown handling
 ; Hooks at 0x08886CA4 (replaces lw v1, 0x7508(v0) + lui v0, 0x0007)
-.createfile "./bin/VERT_HOOK.bin", 0x0891D7C0
+.createfile "./bin/VERT_HOOK.bin", 0x0891D800
 	lw		v1, 0x7508(v0)     ; original instruction from 0x08886CA4
 	lui		v0, 0x0007         ; original instruction from 0x08886CA8
 
