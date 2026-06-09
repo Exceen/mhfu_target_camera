@@ -55,7 +55,26 @@ icon_y equ 55
 	bne		t2, t3, no_monster
 	nop
 
-	lui		t0, (PLAYER_COORDINATES >> 16)
+	; Don't center while the monster icon is hidden: during loading, and on
+	; mission completion (e.g. capturing the last target, whose body lingers
+	; with HP > 0). Check the loading flag first (always mapped, like
+	; monster_icon does), then the quest-state byte.
+	; NOTE: this block grows TARGET_CAM to its full 384-byte slot, so the final
+	; "j 0x088871fc" below MUST keep its explicit nop delay slot - without it
+	; the delay slot falls through into TARGET_CHANGE's first instruction
+	; (addiu sp,sp,-0x18), corrupting the game stack and crashing later via a
+	; jr to a zeroed ra. The beqz delay slot here is folded into the first
+	; centering instruction to keep the whole block within 384 bytes.
+	lui		t0, 0x090A
+	ori		t0, t0, 0xF424			; loading flag (0x090AF424)
+	lb		t1, 0(t0)
+	bnez	t1, no_monster			; loading -> icon hidden -> don't center
+	lui		t0, 0x09A0				; delay slot: begin building 0x09A02228 (no mem access)
+	ori		t0, t0, 0x2228
+	lbu		t1, 0(t0)				; primary quest-state byte (safe: not loading)
+	sltiu	t3, t1, 0x31			; <= 0x30 -> quest in progress
+	beqz	t3, no_monster			; > 0x30 -> completed (capture/slay) -> don't center
+	lui		t0, (PLAYER_COORDINATES >> 16)	; delay slot: harmless if taken, else 1st centering instr
 	ori		t0, t0, (PLAYER_COORDINATES & 0xFFFF)
 	lv.s  	S000, 0(t0)
 	lv.s  	S001, 8(t0)
@@ -147,6 +166,7 @@ return:
 	lv.q	c000, 0x8(sp)
 	addiu	sp, sp, 0x18
 	j 		0x088871fc
+	nop								; explicit delay slot - must NOT fall into TARGET_CHANGE
 .close
 
 .createfile "./bin/VERTEX.bin", 0x0891E2C0
