@@ -1217,10 +1217,12 @@ large_bitmap:
     ; Vespoid Queen(50) Nargacuga(51) Hypnocatrice(52) Lavasioth(53)
     ; Copper Blangonga(54) Emerald Congalala(55) Plum D.Hermitaur(56)
     ; Terra S.Ceanataur(57) Furious Rajang(59)
-    .word 0x9C72C9C2  ; IDs  0-31
-    .word 0x18FFFFE2  ; IDs 32-63
-    .word 0x02FF691B  ; IDs 64-95
-    .word 0x00000000  ; IDs 96-127
+    ; Akantor(4C) Ukanlos(58)
+    ; Fatalis(02,24,47,5C,7B) - multiple type IDs across rank/variant tiers
+    .word 0x9C72C9C6  ; IDs  0-31  (+Fatalis 02)
+    .word 0x18FFFFF2  ; IDs 32-63  (+Fatalis 24)
+    .word 0x13FF799B  ; IDs 64-95  (+Fatalis 47, Akantor 4C, Ukanlos 58, Fatalis 5C)
+    .word 0x08000000  ; IDs 96-127 (+Fatalis 7B)
 .close
 
 ; Third hook: intercept vertical camera DpadUp/DpadDown handling
